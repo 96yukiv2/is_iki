@@ -9,10 +9,11 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "lint": "eslint .",
-    "lint:fix": "exlint . --fix",
+    "lint:fix": "eslint . --fix",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@google/genai": "^2.31.0",
     "@nuxt/eslint": "^1.17.0",
     "@nuxt/ui": "^4.12.0",
     "eslint": "^10.13.0",
@@ -21,5 +22,9 @@
     "tailwindcss": "^4.3.3",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.3.13"
   }
 }
