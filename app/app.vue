@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { motion } from 'motion-v'
+
 type IkiJudgment = {
   isIki: boolean
   comment: string
@@ -100,6 +102,78 @@ async function judge() {
           v-if="result"
           class="mt-6 text-center"
         >
+          <motion.div
+            :initial="{
+              opacity: 0,
+              y: -14,
+              scale: 1.15,
+            }"
+            :animate="{
+              opacity: 1,
+              y: [-14, 3, 0],
+              scale: [1.15, 0.94, 1],
+            }"
+            :transition="{
+              duration: 0.35,
+              ease: 'easeOut',
+            }"
+            class="flex justify-center"
+          >
+            <svg
+              viewBox="0 0 120 120"
+              class="mx-auto mb-4 size-28"
+              role="img"
+              :aria-label="result.isIki ? '粋の判定印' : '否の判定印'"
+            >
+              <template v-if="result.isIki">
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="51"
+                  fill="none"
+                  stroke="#A4493B"
+                  stroke-width="2.5"
+                />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="46"
+                  fill="none"
+                  stroke="#A4493B"
+                  stroke-width="0.8"
+                />
+                <text
+                  x="60"
+                  y="79"
+                  text-anchor="middle"
+                  font-family="serif"
+                  font-size="58"
+                  fill="#A4493B"
+                >粋</text>
+              </template>
+
+              <template v-else>
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="51"
+                  fill="none"
+                  stroke="#77756E"
+                  stroke-width="1.5"
+                  stroke-dasharray="3 4"
+                />
+                <text
+                  x="60"
+                  y="76"
+                  text-anchor="middle"
+                  font-family="serif"
+                  font-size="45"
+                  fill="#77756E"
+                >否</text>
+              </template>
+            </svg>
+          </motion.div>
+
           <h2 class="font-serif text-2xl text-[#A4493B]">
             {{ result.isIki ? '粋です。' : '粋ではありません。' }}
           </h2>
