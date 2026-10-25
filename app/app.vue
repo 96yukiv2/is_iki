@@ -12,6 +12,69 @@ const result = ref<IkiJudgment | null>(null)
 const pending = ref(false)
 const errorMessage = ref('')
 const showEasterEgg = ref(false)
+const imageInput = ref<HTMLInputElement | null>(null)
+const selectedImage = ref<File | null>(null)
+const imagePreviewUrl = ref<string | null>(null)
+const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp']
+const maxImageSize = 4 * 1024 * 1024
+
+const imageError = ref('')
+
+function selectImage() {
+  imageInput.value?.click()
+}
+
+function onImageChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  // 選択をキャンセルした場合は既存画像を維持
+  if (!file) return
+
+  if (!allowedImageTypes.includes(file.type)) {
+    imageError.value = 'JPEG・PNG・WebP形式の画像を選択してください。'
+    target.value = ''
+    return
+  }
+
+  if (file.size > maxImageSize) {
+    imageError.value = '画像は4MB以下にしてください。'
+    target.value = ''
+    return
+  }
+
+  selectedImage.value = file
+  imageError.value = ''
+}
+
+function removeImage() {
+  selectedImage.value = null
+  imageError.value = ''
+
+  if (imageInput.value) {
+    imageInput.value.value = ''
+  }
+}
+
+watch(selectedImage, (file) => {
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+  }
+
+  imagePreviewUrl.value = file ? URL.createObjectURL(file) : null
+})
+
+function createJudgeFormData(): FormData {
+  const formData = new FormData()
+
+  formData.append('input', input.value.trim())
+
+  if (selectedImage.value) {
+    formData.append('image', selectedImage.value)
+  }
+
+  return formData
+}
 
 const easterEggInputs = new Set(['粋', 'いき', 'iki'])
 
@@ -62,10 +125,14 @@ watch(showEasterEgg, (visible) => {
 
 onUnmounted(() => {
   clearTimeout(easterEggTimer)
+
+  if (imagePreviewUrl.value) {
+    URL.revokeObjectURL(imagePreviewUrl.value)
+  }
 })
 
 async function judge() {
-  if (!input.value.trim() || pending.value) return
+  if ((!input.value.trim() && !selectedImage.value) || pending.value) return
 
   if (isEasterEgg(input.value)) {
     result.value = null
@@ -80,9 +147,7 @@ async function judge() {
   try {
     result.value = await $fetch<IkiJudgment>('/api/judge', {
       method: 'POST',
-      body: {
-        input: input.value.trim(),
-      },
+      body: createJudgeFormData(),
     })
   }
   catch {
@@ -183,13 +248,78 @@ async function judge() {
             }"
           />
 
+          <input
+            ref="imageInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            @change="onImageChange"
+          >
+
+          <div
+            v-if="selectedImage && imagePreviewUrl"
+            class="mt-3 rounded-lg bg-[#F8F5EF] p-2"
+          >
+            <div class="flex items-center gap-3">
+              <img
+                :src="imagePreviewUrl"
+                alt="選択した画像のプレビュー"
+                class="size-24 shrink-0 rounded-b-md object-cover"
+              >
+
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-xs font-medium text-[#24251F]">
+                  {{ selectedImage.name }}
+                </p>
+
+                <p class="mt-1 text-xs text-[#8A8177]">
+                  {{ (selectedImage.size / 1024 / 1024).toFixed(2) }} MB
+                  ・
+                  {{ selectedImage.type.replace('image/', '').toUpperCase() }}
+                </p>
+
+                <div class="mt-2 flex justify-end">
+                  <UButton
+                    label="削除"
+                    icon="i-lucide-trash-2"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    class="text-[#655847] hover:bg-[#E5DED2] hover:text-[#24251F]"
+                    @click="removeImage"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <UButton
+              :label="selectedImage ? '画像を変更' : '画像を添える'"
+              icon="i-lucide-image-plus"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              class="text-[#655847] hover:bg-[#F5F0E6] hover:text-[#24251F]"
+              @click="selectImage"
+            />
+
+            <p
+              v-if="imageError"
+              role="alert"
+              class="mt-2 text-xs text-[#A4493B]"
+            >
+              {{ imageError }}
+            </p>
+          </div>
+
           <div class="mt-4 flex justify-center sm:justify-end">
             <UButton
               label="いざ、見定めむ"
               icon="i-lucide-arrow-up-right"
               trailing
               size="sm"
-              :disabled="!input.trim() || pending"
+              :disabled="(!input.trim() && !selectedImage) || pending"
               class="min-h-11 justify-center px-5 text-white"
               :loading="pending"
               @click="judge"

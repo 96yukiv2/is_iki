@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenAI, type Part } from '@google/genai'
 
 const systemInstruction = `
 あなたは「粋」を見極める鑑定士です。
@@ -49,18 +49,73 @@ function isIkiJudgement(value: unknown): value is IkiJudgment {
 }
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  const input = body?.input
+  const allowedImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 
-  if (
-    typeof input !== 'string'
-    || !input.trim()
-    || input.length > 500
-  ) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Input must be non-empty string within 500 characters',
-    })
+  const maxImageSize = 4 * 1024 * 1024
+
+  let input = ''
+  let image: { data: Buffer, mimeType: string } | null = null
+
+  if (getHeader(event, 'content-type')?.includes('multipart/form-data')) {
+    const parts = await readMultipartFormData(event)
+
+    const inputParts = parts?.filter(part => part.name === 'input') ?? []
+    const imageParts = parts?.filter(part => part.name === 'image') ?? []
+
+    if (inputParts.length !== 1 || imageParts.length > 1) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: '不正な入力形式です。',
+      })
+    }
+
+    input = inputParts[0]!.data.toString('utf8').trim()
+
+    const file = imageParts[0]
+
+    if (file) {
+      if (!file.filename || !file.type || !allowedImageTypes.has(file.type)) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: '対応していない画像形式です。',
+        })
+      }
+
+      if (file.data.length > maxImageSize) {
+        throw createError({
+          statusCode: 413,
+          statusMessage: '画像は4MB以下にしてください。',
+        })
+      }
+
+      image = {
+        data: file.data,
+        mimeType: file.type,
+      }
+    }
+    else if (getHeader(event, 'content-type')?.includes('applicaton/json')) {
+      const body = await readBody(event)
+
+      if (!body || typeof body.input !== 'string') {
+        throw createError({
+          statusCode: 400,
+          statusMessage: '不正な入力形式です。',
+        })
+      }
+    }
+    else {
+      throw createError({
+        statusCode: 415,
+        statusMessage: '対応していない送信形式です。',
+      })
+    }
+
+    if (input.length > 500 || (!input && !image)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'テキストまたは画像を入力してください。',
+      })
+    }
   }
 
   const config = useRuntimeConfig(event)
@@ -76,9 +131,24 @@ export default defineEventHandler(async (event) => {
     apiKey: config.geminiApiKey,
   })
 
+  const contents: Part[] = [
+    {
+      text: input || 'この画像から確認できる範囲で、「粋」かどうか判定してください。',
+    },
+  ]
+
+  if (image) {
+    contents.push({
+      inlineData: {
+        mimeType: image.mimeType,
+        data: image.data.toString('base64'),
+      },
+    })
+  }
+
   const response = await ai.models.generateContent({
     model: 'gemini-3.5-flash-lite',
-    contents: input.trim(),
+    contents,
     config: {
       systemInstruction,
       responseMimeType: 'application/json',
