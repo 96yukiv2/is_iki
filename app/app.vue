@@ -22,6 +22,7 @@ function isEasterEgg(input: string): boolean {
 function closeEasterEgg() {
   showEasterEgg.value = false
   input.value = ''
+  result.value = null
 }
 
 const easterEggLines = [
@@ -67,6 +68,7 @@ async function judge() {
   if (!input.value.trim() || pending.value) return
 
   if (isEasterEgg(input.value)) {
+    result.value = null
     showEasterEgg.value = true
     return
   }
