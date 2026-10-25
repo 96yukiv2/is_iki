@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
 
   const maxImageSize = 4 * 1024 * 1024
 
-  let input = ''
+  let input: string
   let image: { data: Buffer, mimeType: string } | null = null
 
   if (getHeader(event, 'content-type')?.includes('multipart/form-data')) {
@@ -93,29 +93,31 @@ export default defineEventHandler(async (event) => {
         mimeType: file.type,
       }
     }
-    else if (getHeader(event, 'content-type')?.includes('applicaton/json')) {
-      const body = await readBody(event)
+  }
+  else if (getHeader(event, 'content-type')?.includes('application/json')) {
+    const body = await readBody(event)
 
-      if (!body || typeof body.input !== 'string') {
-        throw createError({
-          statusCode: 400,
-          statusMessage: '不正な入力形式です。',
-        })
-      }
-    }
-    else {
-      throw createError({
-        statusCode: 415,
-        statusMessage: '対応していない送信形式です。',
-      })
-    }
-
-    if (input.length > 500 || (!input && !image)) {
+    if (!body || typeof body.input !== 'string') {
       throw createError({
         statusCode: 400,
-        statusMessage: 'テキストまたは画像を入力してください。',
+        statusMessage: '不正な入力形式です。',
       })
     }
+
+    input = body.input.trim()
+  }
+  else {
+    throw createError({
+      statusCode: 415,
+      statusMessage: '対応していない送信形式です。',
+    })
+  }
+
+  if (input.length > 500 || (!input && !image)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'テキストまたは画像を入力してください。',
+    })
   }
 
   const config = useRuntimeConfig(event)
