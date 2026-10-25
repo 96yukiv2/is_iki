@@ -11,9 +11,65 @@ const input = ref('')
 const result = ref<IkiJudgment | null>(null)
 const pending = ref(false)
 const errorMessage = ref('')
+const showEasterEgg = ref(false)
+
+const easterEggInputs = new Set(['粋', 'いき', 'iki'])
+
+function isEasterEgg(input: string): boolean {
+  return easterEggInputs.has(input.trim().toLowerCase())
+}
+
+function closeEasterEgg() {
+  showEasterEgg.value = false
+  input.value = ''
+}
+
+const easterEggLines = [
+  'Ha~ 意気地なしで恥ずかしがり屋な',
+  'あなたをもう待ってられないの!!',
+  '「キスをあげるよ」',
+  '今さら「好き」なんて言葉より',
+  'キキメあるでしょ?',
+  'あなたにだけは そっと教えてあげる',
+  '胸の奥 小さいつぼみの ぬくもり',
+]
+
+const activeLine = ref(0)
+
+let easterEggTimer: ReturnType<typeof setTimeout> | undefined
+
+function advanceEasterEgg() {
+  if (!showEasterEgg.value) return
+
+  if (activeLine.value < easterEggLines.length - 1) {
+    activeLine.value++
+    easterEggTimer = setTimeout(advanceEasterEgg, 1500)
+  }
+  else {
+    easterEggTimer = setTimeout(closeEasterEgg, 1800)
+  }
+}
+
+watch(showEasterEgg, (visible) => {
+  clearTimeout(easterEggTimer)
+
+  if (visible) {
+    activeLine.value = 0
+    easterEggTimer = setTimeout(advanceEasterEgg, 1500)
+  }
+})
+
+onUnmounted(() => {
+  clearTimeout(easterEggTimer)
+})
 
 async function judge() {
   if (!input.value.trim() || pending.value) return
+
+  if (isEasterEgg(input.value)) {
+    showEasterEgg.value = true
+    return
+  }
 
   pending.value = true
   result.value = null
@@ -38,7 +94,48 @@ async function judge() {
 
 <template>
   <UApp>
-    <div class="min-h-dvh bg-[#F5F0E6] text-[#24251F]">
+    <div
+      v-if="showEasterEgg"
+      class="relative flex min-h-dvh items-center justify-center bg-[#302D2A]"
+    >
+      <UButton
+        icon="i-lucide-x"
+        label="閉じる"
+        aria-label="特別画面を閉じる"
+        color="neutral"
+        variant="ghost"
+        class="absolute top-4 right-4 text-[#EAE0C9] hover:bg-white/10"
+        @click="closeEasterEgg"
+      />
+      <div
+        class="relative h-80 w-full max-w-xl overflow-hidden px-6"
+        style="mask-image: linear-gradient(to bottom, transparent, black 25%, black 75%, transparent);"
+      >
+        <motion.div
+          class="absolute top-1/2 right-0 left-0 px-6"
+          :animate="{ y: -(activeLine * 80 + 40) }"
+          :transition="{
+            duration: 0.65,
+            ease: 'easeInOut',
+          }"
+        >
+          <p
+            v-for="(line, index) in easterEggLines"
+            :key="index"
+            class="flex h-20 items-center justify-center text-center font-serif text-xl transition-[opacity,transform,color] duration-500 sm:text-2xl"
+            :class="index === activeLine
+              ? 'scale-105 text-[#F5F0E6] opacity-100'
+              : 'scale-95 text-[#B5AAA0] opacity-25'"
+          >
+            {{ line }}
+          </p>
+        </motion.div>
+      </div>
+    </div>
+    <div
+      v-else
+      class="min-h-dvh bg-[#F5F0E6] text-[#24251F]"
+    >
       <main class="mx-auto w-full max-w-2xl px-5 sm:px-8">
         <header class="flex items-center justify-between">
           <span class="text-sm font-medium tracking-wider text-[#655847]">
